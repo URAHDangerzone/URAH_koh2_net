@@ -25,7 +25,7 @@ namespace URAH_Net
     {
         public const string Guid = "urah.koh2.net";
         public const string Name = "URAH_Net";
-        public const string Version = "0.2.0";
+        public const string Version = URAH.BuildVersion.Value; // plugin/version.txt
 
         internal static ManualLogSource Log;
         internal static ConfigEntry<bool> RemoveDeadConnections;
