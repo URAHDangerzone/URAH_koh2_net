@@ -12,7 +12,9 @@ namespace URAH_Net
     /// a player whose heartbeat timed out stays grey until restart because the dead connection stays in
     /// MPBoss.pool and blocks every new one (PoolCleanupPatch), and a failed connect is never retried
     /// (Reconnect). Also fixes the lobby's mod list: read in full (LobbyModIdPatch) and sent sorted, so
-    /// the order mods were switched on in does not matter (ModOrderPatch). Always on, no ModLink: the game
+    /// the order mods were switched on in does not matter (ModOrderPatch), and sends reordered building
+    /// slots to the other players (BuildingSlotsPatch). Diagnostics (log only) watch heartbeats, locks and
+    /// send queues for the leave cascade, campaign joins and the lobby slot actions. Always on, no ModLink: the game
     /// does not compare plugins in multiplayer, so players with and without it still play together;
     /// every fix only acts on the machine that runs it.
     ///
@@ -29,10 +31,11 @@ namespace URAH_Net
 
         internal static ManualLogSource Log;
         internal static ConfigEntry<bool> RemoveDeadConnections;
+        internal static ConfigEntry<bool> SyncBuildingSlots;
 
         private ConfigEntry<int> heartbeatTimeout;
         private Reconnect reconnect;
-        private bool reconnectFailed;
+        private bool reconnectFailed, diagnostics, diagnosticsFailed;
 
         private void Awake()
         {
@@ -51,6 +54,10 @@ namespace URAH_Net
                     new AcceptableValueRange<int>(1, 600)));
             ConfigEntry<bool> sortMods = Config.Bind("Mods", "SortModList", true,
                 "Send the active mod list sorted, so players who switched the same mods on in a different order can start a game together");
+            SyncBuildingSlots = Config.Bind("Buildings", "SyncSlots", true,
+                "As host, send reordered building slots to the other players right away (the game only shows them after the next load)");
+            diagnostics = Config.Bind("Diagnostics", "Enabled", true,
+                "Log heartbeat gaps, held locks, send queues, main thread stalls, campaign joins and lobby slot action errors (log only, changes nothing)").Value;
             reconnect = new Reconnect(firstDelay, maxDelay);
 
             HeartbeatPatch.Apply(heartbeatTimeout.Value);
@@ -65,9 +72,19 @@ namespace URAH_Net
             {
                 Patch(harmony, typeof(ModOrderPatch));
             }
+            Patch(harmony, typeof(BuildingSlotsPatch));
+            if (diagnostics)
+            {
+                Patch(harmony, typeof(UngracefulLogPatch));
+                Patch(harmony, typeof(JoinCampaignPatch));
+                Patch(harmony, typeof(CancelJoinPatch));
+                Patch(harmony, typeof(SlotActionsPatch));
+                Diagnostics.Start();
+            }
             Log.LogInfo($"{Name} {Version} loaded, reconnect {firstDelay.Value} s up to {maxDelay.Value} s, " +
                 $"dead connection cleanup {(RemoveDeadConnections.Value ? "on" : "off")}, " +
-                $"sorted mod list {(sortMods.Value ? "on" : "off")}");
+                $"sorted mod list {(sortMods.Value ? "on" : "off")}, building slot sync {(SyncBuildingSlots.Value ? "on" : "off")}, " +
+                $"diagnostics {(diagnostics ? "on" : "off")}");
         }
 
         /// <summary>Each patch on its own, so one that no longer fits the game does not take the others with it.</summary>
@@ -85,6 +102,19 @@ namespace URAH_Net
 
         private void Update()
         {
+            if (diagnostics && !diagnosticsFailed)
+            {
+                Diagnostics.MainTick();
+                try
+                {
+                    JoinTracker.Update();
+                }
+                catch (Exception e)
+                {
+                    Log.LogError($"Join tracking failed: {e}");
+                    diagnosticsFailed = true;
+                }
+            }
             if (reconnectFailed)
             {
                 return;
