@@ -13,8 +13,9 @@ namespace URAH_Net
     /// MPBoss.pool and blocks every new one (PoolCleanupPatch), and a failed connect is never retried
     /// (Reconnect). Also fixes the lobby's mod list: read in full (LobbyModIdPatch) and sent sorted, so
     /// the order mods were switched on in does not matter (ModOrderPatch), and sends reordered building
-    /// slots to the other players (BuildingSlotsPatch). Diagnostics (log only) watch heartbeats, locks and
-    /// send queues for the leave cascade, campaign joins and the lobby slot actions. Always on, no ModLink: the game
+    /// slots to the other players (BuildingSlotsPatch). Keeps the lobby working when its slot action icons
+    /// fail after a long game (SlotActionsPatch). Diagnostics (log only) watch heartbeats, locks and
+    /// send queues for the leave cascade, and campaign joins. Always on, no ModLink: the game
     /// does not compare plugins in multiplayer, so players with and without it still play together;
     /// every fix only acts on the machine that runs it.
     ///
@@ -57,7 +58,7 @@ namespace URAH_Net
             SyncBuildingSlots = Config.Bind("Buildings", "SyncSlots", true,
                 "As host, send reordered building slots to the other players right away (the game only shows them after the next load)");
             diagnostics = Config.Bind("Diagnostics", "Enabled", true,
-                "Log heartbeat gaps, held locks, send queues, main thread stalls, campaign joins and lobby slot action errors (log only, changes nothing)").Value;
+                "Log heartbeat gaps, held locks, send queues, main thread stalls and campaign joins (log only, changes nothing)").Value;
             reconnect = new Reconnect(firstDelay, maxDelay);
 
             HeartbeatPatch.Apply(heartbeatTimeout.Value);
@@ -73,12 +74,13 @@ namespace URAH_Net
                 Patch(harmony, typeof(ModOrderPatch));
             }
             Patch(harmony, typeof(BuildingSlotsPatch));
+            Patch(harmony, typeof(IconPatch));
+            Patch(harmony, typeof(SlotActionsPatch));
             if (diagnostics)
             {
                 Patch(harmony, typeof(UngracefulLogPatch));
                 Patch(harmony, typeof(JoinCampaignPatch));
                 Patch(harmony, typeof(CancelJoinPatch));
-                Patch(harmony, typeof(SlotActionsPatch));
                 Diagnostics.Start();
             }
             Log.LogInfo($"{Name} {Version} loaded, reconnect {firstDelay.Value} s up to {maxDelay.Value} s, " +

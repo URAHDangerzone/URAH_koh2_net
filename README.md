@@ -15,9 +15,13 @@ base game. Needs no mod and works in vanilla; players with and without it can pl
 - **Reordered buildings show right away.** Moving buildings to other slots reached the host, but the
   new order was never sent back, so the other players only saw it after the next load. The host now
   sends it (only the host needs URAH_Net for this).
+- **Lobbies open after a long game.** After a longer match the icons of the player slot actions (kick,
+  invite, close) fail to build, which stops creating a new lobby and shows an existing one without the
+  map. URAH_Net catches the error, tries the icon once more and opens the lobby anyway, at worst
+  without those icons. The cause is still unknown; the log says what the icon looked like.
 - **Diagnostics** (log only, `[Diagnostics] Enabled`): heartbeat gaps per player, connections that stop
-  sending, held network locks, send queues and main thread stalls, every campaign join with the
-  owner's connection state, and errors of the lobby slot actions. After a drop or a hang, the
+  sending, held network locks, send queues and main thread stalls, and every campaign join with the
+  owner's connection state. After a drop or a hang, the
   `BepInEx/LogOutput.log` of everyone involved shows where it broke.
 
 Every fix only acts on the machine that runs it, so everyone in a lobby should have it. Log lines start

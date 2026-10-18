@@ -1,5 +1,4 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Text;
@@ -122,7 +121,8 @@ namespace URAH_Net
         }
     }
 
-    [HarmonyPatch(typeof(MPBoss), nameof(MPBoss.JoinCampaign))]
+    [HarmonyPatch(typeof(MPBoss), nameof(MPBoss.JoinCampaign), new[] { typeof(Campaign), typeof(string), typeof(string),
+        typeof(Logic.Multiplayer.JoinReason), typeof(string), typeof(Action<Campaign>) })]
     internal static class JoinCampaignPatch
     {
         private static void Postfix(Campaign campaign, string campaign_id, string owner_id, Logic.Coroutine __result)
@@ -140,78 +140,6 @@ namespace URAH_Net
         private static void Prefix()
         {
             JoinTracker.Cancelled();
-        }
-    }
-
-    /// <summary>
-    /// Log-only, for the lobby that opens without the map after a long game (TODO.md):
-    /// MPBoss.CreateNewCampaign died with a NullReferenceException in UILobbyPlayers+UIActionIcon.Create,
-    /// called from UISlotActions.BuildActions. This logs the exception with the state of the prototype,
-    /// the container and the object pool entry of the prototype, and lets the exception through unchanged.
-    /// </summary>
-    [HarmonyPatch]
-    internal static class SlotActionsPatch
-    {
-        private static readonly FieldInfo freedField = AccessTools.Field(typeof(ObjectPool), "freed");
-
-        private static MethodBase TargetMethod()
-        {
-            return AccessTools.Method(AccessTools.TypeByName("UILobbyPlayers+UISlotActions"), "BuildActions");
-        }
-
-        private static Exception Finalizer(Exception __exception, object __instance)
-        {
-            if (__exception == null)
-            {
-                return null;
-            }
-            try
-            {
-                var t = Traverse.Create(__instance);
-                var prototype = t.Field("m_ActionIconPrototype").GetValue<GameObject>();
-                var container = t.Field("m_ActionsContainer").GetValue<RectTransform>();
-                int slot = t.Field("slotIndex").GetValue<int>();
-                List<string> actions = MPBoss.Get()?.GetValidSlotActions(slot);
-                Diagnostics.Log($"Lobby slot actions failed: slot {slot}, prototype {Unity(prototype)}, container {Unity(container)}, " +
-                    $"actions [{(actions == null ? "none" : string.Join(", ", actions))}], pool {Pool(prototype)}\n{__exception}");
-            }
-            catch (Exception e)
-            {
-                Plugin.Log.LogError($"Lobby slot actions failed ({__exception.Message}), logging it failed too: {e}");
-            }
-            return __exception;
-        }
-
-        /// <summary>Unity objects compare equal to null once destroyed; this tells both apart.</summary>
-        private static string Unity(UnityEngine.Object obj)
-        {
-            if ((object)obj == null)
-            {
-                return "null";
-            }
-            return obj == null ? "destroyed" : $"'{obj.name}'";
-        }
-
-        /// <summary>Freed objects ObjectPool keeps for the prototype, and how many of them are destroyed.</summary>
-        private static string Pool(GameObject prototype)
-        {
-            if ((object)prototype == null || !(freedField?.GetValue(null) is IDictionary freed))
-            {
-                return "-";
-            }
-            if (!freed.Contains(prototype) || !(freed[prototype] is IList list))
-            {
-                return "no freed objects";
-            }
-            int destroyed = 0;
-            foreach (object entry in list)
-            {
-                if (!(Traverse.Create(entry).Field("obj").GetValue() is GameObject go) || go == null)
-                {
-                    destroyed++;
-                }
-            }
-            return $"{list.Count} freed, {destroyed} destroyed";
         }
     }
 }
