@@ -12,9 +12,9 @@ namespace URAH_Net
     using Multiplayer = Logic.Multiplayer;
 
     /// <summary>
-    /// Log-only watchdog for the multiplayer drops (MP_CONNECTION_PLAN.md, "everyone drops when one player
-    /// leaves"). The game resets one heartbeat timer per player on every received message
-    /// (Multiplayer.last_heartbeat_received) and drops all connections to a player 5 s after the last one.
+    /// Log-only watchdog for the multiplayer drops where everyone drops when one player leaves. The game
+    /// resets one heartbeat timer per player on every received message (Multiplayer.last_heartbeat_received)
+    /// and drops all connections to a player 5 s after the last one.
     /// Each Multiplayer sends from its SS thread under its Lock, receive threads take the same Lock, and
     /// every Steam read / send on the machine goes through THQNORequest.LockP2P. A thread of its own looks
     /// every 250 ms at: the time since the last message from each player, the time since each connection
