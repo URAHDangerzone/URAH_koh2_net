@@ -26,6 +26,7 @@ base game. Needs no mod and works in vanilla; players with and without it can pl
 
 Every fix only acts on the machine that runs it, so everyone in a lobby should have it. Log lines start
 with `[URAH_Net]` in `BepInEx/LogOutput.log`; settings in `BepInEx/config/urah.koh2.net.cfg`.
+`[General] Enabled` switches the whole plugin on and off right away, no restart needed.
 
 ## Install
 

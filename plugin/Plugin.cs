@@ -15,9 +15,10 @@ namespace URAH_Net
     /// the order mods were switched on in does not matter (ModOrderPatch), and sends reordered building
     /// slots to the other players (BuildingSlotsPatch). Keeps the lobby working when its slot action icons
     /// fail after a long game (SlotActionsPatch). Diagnostics (log only) watch heartbeats, locks and
-    /// send queues for the leave cascade, and campaign joins. Always on, no ModLink: the game
-    /// does not compare plugins in multiplayer, so players with and without it still play together;
-    /// every fix only acts on the machine that runs it.
+    /// send queues for the leave cascade, and campaign joins. No ModLink: the game does not compare
+    /// plugins in multiplayer, so players with and without it still play together; every fix only acts
+    /// on the machine that runs it. [General] Enabled switches it all on and off at runtime (the
+    /// URAH_PluginManager convention): patches off, heartbeat timeout back, no reconnects, watchdog stopped.
     ///
     /// Patching MPBoss, MPBossMultiplayerPool, THQNORequest, UILobbyBrowser and ModManager at load is
     /// safe: none has a static constructor that reads defs, settings or the ModManager (unlike
@@ -34,13 +35,17 @@ namespace URAH_Net
         internal static ConfigEntry<bool> RemoveDeadConnections;
         internal static ConfigEntry<bool> SyncBuildingSlots;
 
+        private ConfigEntry<bool> enabledSetting, sortMods;
         private ConfigEntry<int> heartbeatTimeout;
+        private Harmony harmony;
         private Reconnect reconnect;
-        private bool reconnectFailed, diagnostics, diagnosticsFailed;
+        private bool active, reconnectFailed, diagnostics, diagnosticsFailed;
 
         private void Awake()
         {
             Log = Logger;
+            enabledSetting = Config.Bind("General", "Enabled", true,
+                "Switch the plugin on and off (takes effect right away)");
             heartbeatTimeout = Config.Bind("Heartbeat", "TimeoutMs", 0,
                 new ConfigDescription("Milliseconds without a heartbeat before a connection counts as lost (0 = keep the game's 5000). " +
                     "Only lengthens this machine's patience, the other side still drops after its own timeout",
@@ -53,16 +58,43 @@ namespace URAH_Net
             ConfigEntry<int> maxDelay = Config.Bind("Reconnect", "MaxDelaySeconds", 30,
                 new ConfigDescription("The delay doubles after every attempt up to this many seconds",
                     new AcceptableValueRange<int>(1, 600)));
-            ConfigEntry<bool> sortMods = Config.Bind("Mods", "SortModList", true,
+            sortMods = Config.Bind("Mods", "SortModList", true,
                 "Send the active mod list sorted, so players who switched the same mods on in a different order can start a game together");
             SyncBuildingSlots = Config.Bind("Buildings", "SyncSlots", true,
                 "As host, send reordered building slots to the other players right away (the game only shows them after the next load)");
             diagnostics = Config.Bind("Diagnostics", "Enabled", true,
                 "Log heartbeat gaps, held locks, send queues, main thread stalls and campaign joins (log only, changes nothing)").Value;
             reconnect = new Reconnect(firstDelay, maxDelay);
+            harmony = new Harmony(Guid);
+            enabledSetting.SettingChanged += (sender, e) => Apply();
+            Apply();
+            Log.LogInfo($"{Name} {Version} loaded, {(enabledSetting.Value ? "enabled" : "disabled")}, " +
+                $"reconnect {firstDelay.Value} s up to {maxDelay.Value} s, " +
+                $"dead connection cleanup {(RemoveDeadConnections.Value ? "on" : "off")}, " +
+                $"sorted mod list {(sortMods.Value ? "on" : "off")}, building slot sync {(SyncBuildingSlots.Value ? "on" : "off")}, " +
+                $"diagnostics {(diagnostics ? "on" : "off")}");
+        }
 
+        /// <summary>Everything on while Enabled is on; off undoes the patches and the non-Harmony parts.</summary>
+        private void Apply()
+        {
+            if (enabledSetting.Value == active)
+            {
+                return;
+            }
+            active = enabledSetting.Value;
+            if (!active)
+            {
+                harmony.UnpatchSelf();
+                HeartbeatPatch.Restore();
+                Diagnostics.Stop();
+                JoinTracker.Stop();
+                Reconnect.Reset("switched off");
+                Log.LogInfo("Switched off");
+                return;
+            }
+            reconnectFailed = diagnosticsFailed = false;
             HeartbeatPatch.Apply(heartbeatTimeout.Value);
-            var harmony = new Harmony(Guid);
             Patch(harmony, typeof(PoolCleanupPatch));
             Patch(harmony, typeof(EnterLobbyPatch));
             Patch(harmony, typeof(LeaveCampaignPatch));
@@ -83,10 +115,7 @@ namespace URAH_Net
                 Patch(harmony, typeof(CancelJoinPatch));
                 Diagnostics.Start();
             }
-            Log.LogInfo($"{Name} {Version} loaded, reconnect {firstDelay.Value} s up to {maxDelay.Value} s, " +
-                $"dead connection cleanup {(RemoveDeadConnections.Value ? "on" : "off")}, " +
-                $"sorted mod list {(sortMods.Value ? "on" : "off")}, building slot sync {(SyncBuildingSlots.Value ? "on" : "off")}, " +
-                $"diagnostics {(diagnostics ? "on" : "off")}");
+            Log.LogInfo("Switched on");
         }
 
         /// <summary>Each patch on its own, so one that no longer fits the game does not take the others with it.</summary>
@@ -104,6 +133,10 @@ namespace URAH_Net
 
         private void Update()
         {
+            if (!active)
+            {
+                return;
+            }
             if (diagnostics && !diagnosticsFailed)
             {
                 Diagnostics.MainTick();

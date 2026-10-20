@@ -40,6 +40,12 @@ namespace URAH_Net
             Diagnostics.Log($"Join {campaignId} started, owner {Owner()}");
         }
 
+        /// <summary>The plugin was switched off: no more join lines.</summary>
+        public static void Stop()
+        {
+            campaign = null;
+        }
+
         public static void Cancelled()
         {
             if (campaign != null)

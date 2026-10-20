@@ -37,6 +37,7 @@ namespace URAH_Net
         private static readonly Stopwatch clock = Stopwatch.StartNew();
         private static long mainTick = -1;
         private static Thread thread;
+        private static readonly ManualResetEvent stop = new ManualResetEvent(false);
 
         // watchdog thread only
         private static readonly Dictionary<string, long> rxGapSince = new Dictionary<string, long>();
@@ -69,8 +70,28 @@ namespace URAH_Net
             {
                 return;
             }
+            stop.Reset();
             thread = new Thread(Run) { Name = "URAH_Net watchdog", IsBackground = true };
             thread.Start();
+        }
+
+        /// <summary>Ends the watchdog thread and waits for it (a tick is short), then forgets its state.</summary>
+        public static void Stop()
+        {
+            if (thread == null)
+            {
+                return;
+            }
+            stop.Set();
+            thread.Join();
+            thread = null;
+            rxGapSince.Clear();
+            txGapSince.Clear();
+            locks.Clear();
+            queueLogged.Clear();
+            multiplayers.Clear();
+            stallSince = -1;
+            Interlocked.Exchange(ref mainTick, -1);
         }
 
         /// <summary>From the plugin's Update: main thread liveness.</summary>
@@ -81,8 +102,10 @@ namespace URAH_Net
 
         private static void Run()
         {
-            while (true)
+            int wait;
+            do
             {
+                wait = TickMs;
                 try
                 {
                     Tick();
@@ -90,10 +113,10 @@ namespace URAH_Net
                 catch (Exception e)
                 {
                     Plugin.Log.LogError($"Watchdog: {e}");
-                    Thread.Sleep(5000);
+                    wait = 5000 + TickMs;
                 }
-                Thread.Sleep(TickMs);
             }
+            while (!stop.WaitOne(wait));
         }
 
         private static void Tick()
