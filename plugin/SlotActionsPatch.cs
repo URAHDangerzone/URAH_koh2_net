@@ -5,6 +5,8 @@ using System.Linq;
 using System.Reflection;
 using HarmonyLib;
 using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.UI;
 
 namespace URAH_Net
 {
@@ -16,10 +18,16 @@ namespace URAH_Net
     /// MPBoss.CreateNewCampaign (no new lobby) or UILobbyPlayers.UpdatePlayers in every LateUpdate (lobby
     /// without map, starting still works).
     ///
+    /// The spawned icon then carries the top-level UIActionIcon (the action bar's icon class) instead of the
+    /// lobby's nested class of the same name (seen 2026-10-20: GetComponent(UILobbyPlayers+UIActionIcon)
+    /// returns a UIActionIcon). Unity apparently mixes the two scripts up by class name; why only after a
+    /// long game is unknown. Without the icon the host can't kick, close or open a slot.
+    ///
     /// IconPatch logs the spawned icon object (components, state) and tries to finish the icon once more
-    /// (GetComponent / AddComponent, SetData); the icon is thrown away when that fails too. SlotActionsPatch
-    /// stops whatever is left at BuildActions, so the lobby opens with missing slot action icons at worst.
-    /// The cause is unknown, the log lines are there to find it.
+    /// (GetComponent / AddComponent, SetData). When that fails too, it disables the wrong component and
+    /// makes the icon work with SlotActionButton, a component of this plugin. The icon is thrown away only
+    /// when that fails as well. SlotActionsPatch stops whatever is left at BuildActions, so the lobby opens
+    /// with missing slot action icons at worst.
     /// </summary>
     internal static class SlotActions
     {
@@ -105,8 +113,23 @@ namespace URAH_Net
             {
                 how = $"failed with {(e is TargetInvocationException tie ? tie.InnerException : e)}";
             }
+            try
+            {
+                SlotActionButton.Attach(obj, action, slot);
+                return $"{how}, own button shown";
+            }
+            catch (Exception e)
+            {
+                how = $"{how}, own button failed with {e}";
+            }
             ObjectPool.DestroyObj(obj);
             return $"{how}, icon removed";
+        }
+
+        /// <summary>The lobby's own icon class sits on the object and works: then it handles the click.</summary>
+        internal static bool HasWorkingIcon(GameObject obj)
+        {
+            return IconType != null && obj.GetComponent(IconType) is Behaviour icon && IconType.IsInstanceOfType(icon) && icon.enabled;
         }
 
         private static string Describe(GameObject obj)
@@ -206,6 +229,46 @@ namespace URAH_Net
                 Plugin.Log.LogError($"Lobby slot actions failed ({__exception.Message}), logging it failed too: {e}");
             }
             return null;
+        }
+    }
+
+    /// <summary>
+    /// Stands in for UILobbyPlayers+UIActionIcon when the game can't put it on the icon: the same sprite,
+    /// tooltip and click (MPBoss.PerformSlotAction). Pooled icons are reused, so it stays on the object and
+    /// keeps quiet while the lobby's own icon class works there again.
+    /// </summary>
+    internal sealed class SlotActionButton : MonoBehaviour, IPointerClickHandler
+    {
+        private string action;
+        private int slot;
+
+        internal static void Attach(GameObject obj, string action, int slot)
+        {
+            // the wrong icon class would answer the click too
+            foreach (global::UIActionIcon wrong in obj.GetComponents<global::UIActionIcon>())
+            {
+                wrong.enabled = false;
+            }
+            SlotActionButton button = obj.GetComponent<SlotActionButton>() ?? obj.AddComponent<SlotActionButton>();
+            button.action = action;
+            button.slot = slot;
+            Logic.DT.Field def = Defs.GetDefField("LobbyPlayerWindow")?.FindChild(action);
+            Image image = obj.GetComponentsInChildren<Image>(true).FirstOrDefault(i => i.name == "id_Icon");
+            if (image != null)
+            {
+                image.overrideSprite = Defs.GetObj<Sprite>(def, "icon");
+            }
+            Tooltip.Get(obj).SetDef("PlayerSlotActionTooltip", new Logic.Vars(def));
+        }
+
+        public void OnPointerClick(PointerEventData e)
+        {
+            if (e.button != PointerEventData.InputButton.Left || SlotActions.HasWorkingIcon(gameObject))
+            {
+                return;
+            }
+            string result = MPBoss.Get()?.PerformSlotAction(slot, action);
+            Diagnostics.Log($"Slot action '{action}' of slot {slot} through the replacement icon: {result ?? "no MPBoss"}");
         }
     }
 }

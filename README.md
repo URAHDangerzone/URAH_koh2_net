@@ -17,8 +17,10 @@ base game. Needs no mod and works in vanilla; players with and without it can pl
   sends it (only the host needs URAH_Net for this).
 - **Lobbies open after a long game.** After a longer match the icons of the player slot actions (kick,
   invite, close) fail to build, which stops creating a new lobby and shows an existing one without the
-  map. URAH_Net catches the error, tries the icon once more and opens the lobby anyway, at worst
-  without those icons. The cause is still unknown; the log says what the icon looked like.
+  map. The icon then carries the action bar's `UIActionIcon` instead of the lobby's class of the same
+  name. URAH_Net catches the error, tries the icon once more and, when that fails, makes it work with its
+  own click handler, so the host can still kick, invite or close a slot. Why it happens only after a long
+  game is still unknown; the log says what the icon looked like.
 - **Diagnostics** (log only, `[Diagnostics] Enabled`): heartbeat gaps per player, connections that stop
   sending, held network locks, send queues and main thread stalls, and every campaign join with the
   owner's connection state. After a drop or a hang, the

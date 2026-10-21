@@ -11,6 +11,10 @@
 
   <Import Project="$(URAHShared)/URAH.Plugin.props" />
 
+  <ItemGroup>
+    <Reference Include="UnityEngine.UI" HintPath="$(ManagedDir)/UnityEngine.UI.dll" Private="false" />
+  </ItemGroup>
+
   <Target Name="Deploy" AfterTargets="Build" Condition="'$(Deploy)' == 'true'">
     <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(BepInExPlugins)/URAH_Net" />
   </Target>
