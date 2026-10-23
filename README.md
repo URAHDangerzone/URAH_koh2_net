@@ -7,6 +7,11 @@ base game. Needs no mod and works in vanilla; players with and without it can pl
   more, and trying again ends in endless joining until a restart: a dead connection stays in the
   connection pool and blocks every new one, and a failed connect is never retried. URAH_Net throws
   the dead connection away and reconnects after 2, 4, 8, 16, then every 30 seconds.
+- **Reset button for players who stay grey.** A button right of the lobby's "Copy Code" (and
+  `Ctrl+Shift+F9`, `[Session] ResetKey`, in the main menu or a lobby) drops every lobby connection,
+  closes the Steam P2P sessions and connects again on fresh ones. The game itself only ever closes
+  single channels, so a broken Steam session stays broken until a restart. The button is active once
+  a player of the lobby lost the connection. Everyone in the lobby is grey for about 6 seconds.
 - **Lobbies with several mods show their mods.** The lobby browser read the host's mod list through a
   128-character buffer, so with two mods with longer names it arrived cut off and nobody could join.
 - **Mod order does not matter.** Starting a game compares the players' mod lists as text, in the order
@@ -22,8 +27,9 @@ base game. Needs no mod and works in vanilla; players with and without it can pl
   own click handler, so the host can still kick, invite or close a slot. Why it happens only after a long
   game is still unknown; the log says what the icon looked like.
 - **Diagnostics** (log only, `[Diagnostics] Enabled`): heartbeat gaps per player, connections that stop
-  sending, held network locks, send queues and main thread stalls, and every campaign join with the
-  owner's connection state. After a drop or a hang, the
+  sending, held network locks, send queues and main thread stalls, every campaign join with the
+  owner's connection state, and P2P reads whose size does not match the announced one (the game's
+  `THQNO.ReadP2PPacket() message not completely read!`) with sender, channel and both sizes. After a drop or a hang, the
   `BepInEx/LogOutput.log` of everyone involved shows where it broke.
 
 Every fix only acts on the machine that runs it, so everyone in a lobby should have it. Log lines start

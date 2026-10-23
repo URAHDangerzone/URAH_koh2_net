@@ -10,6 +10,10 @@ namespace URAH_Net
         private static void Postfix(string player_id, bool online)
         {
             Plugin.Log.LogInfo($"{Plugin.Who(player_id)} {(online ? "online" : "offline")}");
+            if (!online)
+            {
+                SessionReset.NoteOffline(player_id);
+            }
         }
     }
 

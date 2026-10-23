@@ -4,6 +4,7 @@ using BepInEx.Configuration;
 using BepInEx.Logging;
 using HarmonyLib;
 using Logic;
+using UnityEngine;
 
 namespace URAH_Net
 {
@@ -13,9 +14,12 @@ namespace URAH_Net
     /// MPBoss.pool and blocks every new one (PoolCleanupPatch), and a failed connect is never retried
     /// (Reconnect). Also fixes the lobby's mod list: read in full (LobbyModIdPatch) and sent sorted, so
     /// the order mods were switched on in does not matter (ModOrderPatch), and sends reordered building
-    /// slots to the other players (BuildingSlotsPatch). Keeps the lobby working when its slot action icons
-    /// fail after a long game (SlotActionsPatch). Diagnostics (log only) watch heartbeats, locks and
-    /// send queues for the leave cascade, and campaign joins. No ModLink: the game does not compare
+    /// slots to the other players (BuildingSlotsPatch). [Session] ResetKey closes every Steam P2P session
+    /// outside running games and connects again (SessionReset), as does a button next to the lobby's Copy
+    /// Code (LobbyResetButtonPatch). Keeps the lobby working when its slot action icons fail after a long
+    /// game (SlotActionsPatch). Diagnostics (log only) watch heartbeats, locks and send queues for the
+    /// leave cascade, campaign joins, and P2P reads whose size does not match the announced one
+    /// (ReadLogPatch). No ModLink: the game does not compare
     /// plugins in multiplayer, so players with and without it still play together; every fix only acts
     /// on the machine that runs it. [General] Enabled switches it all on and off at runtime (the
     /// URAH_PluginManager convention): patches off, heartbeat timeout back, no reconnects, watchdog stopped.
@@ -62,6 +66,8 @@ namespace URAH_Net
                 "Send the active mod list sorted, so players who switched the same mods on in a different order can start a game together");
             SyncBuildingSlots = Config.Bind("Buildings", "SyncSlots", true,
                 "As host, send reordered building slots to the other players right away (the game only shows them after the next load)");
+            SessionReset.Key = Config.Bind("Session", "ResetKey", new KeyboardShortcut(KeyCode.F9, KeyCode.LeftControl, KeyCode.LeftShift),
+                "Outside running games: shut down every lobby connection, close the Steam P2P sessions and connect again (for players who stay grey)");
             diagnostics = Config.Bind("Diagnostics", "Enabled", true,
                 "Log heartbeat gaps, held locks, send queues, main thread stalls and campaign joins (log only, changes nothing)").Value;
             reconnect = new Reconnect(firstDelay, maxDelay);
@@ -108,11 +114,13 @@ namespace URAH_Net
             Patch(harmony, typeof(BuildingSlotsPatch));
             Patch(harmony, typeof(IconPatch));
             Patch(harmony, typeof(SlotActionsPatch));
+            Patch(harmony, typeof(LobbyResetButtonPatch));
             if (diagnostics)
             {
                 Patch(harmony, typeof(UngracefulLogPatch));
                 Patch(harmony, typeof(JoinCampaignPatch));
                 Patch(harmony, typeof(CancelJoinPatch));
+                Patch(harmony, typeof(ReadLogPatch));
                 Diagnostics.Start();
             }
             Log.LogInfo("Switched on");
@@ -149,6 +157,14 @@ namespace URAH_Net
                     Log.LogError($"Join tracking failed: {e}");
                     diagnosticsFailed = true;
                 }
+            }
+            try
+            {
+                SessionReset.Update();
+            }
+            catch (Exception e)
+            {
+                Plugin.Log.LogError($"Session reset failed: {e}");
             }
             if (reconnectFailed)
             {

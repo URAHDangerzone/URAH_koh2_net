@@ -1,1 +1,1 @@
-Fixes multiplayer lobby problems: grey players reconnect by themselves, long mod lists arrive in full, mod order does not matter, reordered buildings show right away, lobbies open after a long game.
+Fixes multiplayer lobby problems: grey players reconnect by themselves, a reset button in the lobby rebuilds broken connections, long mod lists arrive in full, mod order does not matter, reordered buildings show right away, lobbies open after a long game.

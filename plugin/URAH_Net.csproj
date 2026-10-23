@@ -13,6 +13,7 @@
 
   <ItemGroup>
     <Reference Include="UnityEngine.UI" HintPath="$(ManagedDir)/UnityEngine.UI.dll" Private="false" />
+    <Reference Include="Unity.TextMeshPro" HintPath="$(ManagedDir)/Unity.TextMeshPro.dll" Private="false" />
   </ItemGroup>
 
   <Target Name="Deploy" AfterTargets="Build" Condition="'$(Deploy)' == 'true'">

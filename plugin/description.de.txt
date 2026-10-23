@@ -1,1 +1,1 @@
-Behebt Probleme in Mehrspieler-Lobbys: graue Spieler verbinden sich selbst neu, lange Mod-Listen kommen vollständig an, die Mod-Reihenfolge ist egal, umgestellte Gebäude erscheinen sofort, Lobbys öffnen auch nach einem langen Spiel.
+Behebt Probleme in Mehrspieler-Lobbys: graue Spieler verbinden sich selbst neu, ein Knopf in der Lobby baut kaputte Verbindungen neu auf, lange Mod-Listen kommen vollständig an, die Mod-Reihenfolge ist egal, umgestellte Gebäude erscheinen sofort, Lobbys öffnen auch nach einem langen Spiel.

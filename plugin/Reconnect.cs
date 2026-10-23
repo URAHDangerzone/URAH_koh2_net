@@ -48,7 +48,7 @@ namespace URAH_Net
         public void Update()
         {
             float now = Time.realtimeSinceStartup;
-            if (now < nextCheck || firstDelay.Value <= 0)
+            if (now < nextCheck || firstDelay.Value <= 0 || SessionReset.Running)
             {
                 return;
             }
@@ -107,6 +107,7 @@ namespace URAH_Net
         private static void Postfix()
         {
             Reconnect.Reset("entered a lobby");
+            SessionReset.DropSeen = false;
         }
     }
 
@@ -116,6 +117,7 @@ namespace URAH_Net
         private static void Postfix()
         {
             Reconnect.Reset("left a campaign");
+            SessionReset.DropSeen = false;
         }
     }
 }
