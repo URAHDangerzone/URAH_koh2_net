@@ -12,6 +12,12 @@ base game. Needs no mod and works in vanilla; players with and without it can pl
   closes the Steam P2P sessions and connects again on fresh ones. The game itself only ever closes
   single channels, so a broken Steam session stays broken until a restart. The button is active once
   a player of the lobby lost the connection. Everyone in the lobby is grey for about 6 seconds.
+- **Connections keep working in long sessions.** The game gives every new connection the next channel
+  number for the whole session, but its native P2P read only reaches channels up to 255. Above that the
+  read gets nothing and every connection dies after 5 seconds, again with each reconnect (the log
+  fills with `message not completely read!`). URAH_Net keeps the channels at 255 or below and wraps
+  around to free ones. A player without it may still ask for a channel above 255 if their game saw
+  one of ours earlier; that connection only works again after they restart.
 - **Lobbies with several mods show their mods.** The lobby browser read the host's mod list through a
   128-character buffer, so with two mods with longer names it arrived cut off and nobody could join.
 - **Mod order does not matter.** Starting a game compares the players' mod lists as text, in the order

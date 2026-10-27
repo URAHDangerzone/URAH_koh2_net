@@ -12,7 +12,8 @@ namespace URAH_Net
     /// Heals the multiplayer lobby's P2P meta connections (base-game bug):
     /// a player whose heartbeat timed out stays grey until restart because the dead connection stays in
     /// MPBoss.pool and blocks every new one (PoolCleanupPatch), and a failed connect is never retried
-    /// (Reconnect). Also fixes the lobby's mod list: read in full (LobbyModIdPatch) and sent sorted, so
+    /// (Reconnect). Keeps the P2P channels this machine listens on at 255 or below, the most the native
+    /// read can reach (ChannelPatch). Also fixes the lobby's mod list: read in full (LobbyModIdPatch) and sent sorted, so
     /// the order mods were switched on in does not matter (ModOrderPatch), and sends reordered building
     /// slots to the other players (BuildingSlotsPatch). [Session] ResetKey closes every Steam P2P session
     /// outside running games and connects again (SessionReset), as does a button next to the lobby's Copy
@@ -102,6 +103,9 @@ namespace URAH_Net
             reconnectFailed = diagnosticsFailed = false;
             HeartbeatPatch.Apply(heartbeatTimeout.Value);
             Patch(harmony, typeof(PoolCleanupPatch));
+            Patch(harmony, typeof(ChannelPatch));
+            Patch(harmony, typeof(IncorrectChannelPatch));
+            Patch(harmony, typeof(AcceptWrapPatch));
             Patch(harmony, typeof(EnterLobbyPatch));
             Patch(harmony, typeof(LeaveCampaignPatch));
             Patch(harmony, typeof(PresenceLogPatch));
